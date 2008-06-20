@@ -67,7 +67,7 @@ namespace {
 /**
  * Constructor
  */
-RangeServer::RangeServer(PropertiesPtr &props_ptr, ConnectionManagerPtr &conn_manager_ptr, ApplicationQueuePtr &app_queue_ptr, Hyperspace::SessionPtr &hyperspace_ptr) : m_root_replay_finished(false), m_metadata_replay_finished(false), m_replay_finished(false), m_props_ptr(props_ptr), m_verbose(false), m_conn_manager_ptr(conn_manager_ptr), m_app_queue_ptr(app_queue_ptr), m_hyperspace_ptr(hyperspace_ptr), m_last_commit_log_clean(0), m_bytes_loaded(0) {
+RangeServer::RangeServer(PropertiesPtr &props_ptr, ConnectionManagerPtr &conn_manager_ptr, ApplicationQueuePtr &app_queue_ptr, Hyperspace::SessionPtr &hyperspace_ptr) : m_root_replay_finished(false), m_metadata_replay_finished(false), m_replay_finished(false), m_props_ptr(props_ptr), m_verbose(false), m_conn_manager_ptr(conn_manager_ptr), m_app_queue_ptr(app_queue_ptr), m_hyperspace_ptr(hyperspace_ptr), m_last_commit_log_clean(0), m_bytes_loaded(0), m_scan_spec_cache(1000) {
   uint16_t port;
   uint32_t maintenance_threads = 1;
   Comm *comm = conn_manager_ptr->get_comm();
@@ -642,12 +642,43 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
       throw Hypertable::Exception(Error::RANGESERVER_RANGE_NOT_FOUND,
                                   (String)"(b) " + table->name + "[" + range->start_row + ".." + range->end_row + "]");
 
-    more = FillScanBlock(scanner_ptr, rbuf);
+    if (m_scan_spec_cache.exists(*scan_spec)) {
+        uint8_t* cachedBuffer = m_scan_spec_cache.fetch(*scan_spec);
+	uint32_t cachedLen = *(uint32_t *)cachedBuffer;
+    	kvBuffer = new uint8_t [ sizeof(int32_t) + cachedLen ];
+    	kvLenp = (uint32_t *)kvBuffer;
+	memcpy(kvBuffer, cachedBuffer, sizeof(int32_t) + cachedLen);
+        more = false;
+        HT_INFOF("GOT DATA FROM CACHE","");
+    } else {
+    	kvBuffer = new uint8_t [ sizeof(int32_t) + DEFAULT_SCANBUF_SIZE ];
+    	kvLenp = (uint32_t *)kvBuffer;
 
-    id = (more) ? Global::scanner_map.put(scanner_ptr, range_ptr) : 0;
+    	more = FillScanBlock(scannerPtr, kvBuffer+sizeof(int32_t), DEFAULT_SCANBUF_SIZE, kvLenp);
+    	if (more)
+           id = Global::scannerMap.put(scannerPtr, range_ptr);
+    	else
+           id = 0;
 
-    if (Global::verbose) {
-      HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
+    	if (Global::verbose) {
+           HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
+    	}
+
+        if (!more) {
+            uint8_t* cachedBuffer = new uint8_t [ sizeof(int32_t) + *kvLenp ];
+	    memcpy(cachedBuffer, kvBuffer, sizeof(int32_t) + *kvLenp);
+            m_scan_spec_cache.insert(*scan_spec,cachedBuffer);
+        }
+
+        //if (Global::verbose) {
+          HT_INFOF("INSERTED DATA ON CACHE","");
+        //}
+
+        id = (more) ? Global::scanner_map.put(scanner_ptr, range_ptr) : 0;
+
+        if (Global::verbose) {
+           HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
+        }
     }
 
     /**

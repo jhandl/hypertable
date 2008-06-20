@@ -119,7 +119,11 @@ namespace Hypertable {
   std::ostream &operator<<(std::ostream &os, const RangeSpec &);
 
 
-} // namespace Hypertable
+  inline  bool operator<(const ScanSpec &self, const ScanSpec &other ) {
+    return self.interval < other.interval;
+  }
+
+}
 
 
 #endif // HYPERTABLE_REQUEST_H
