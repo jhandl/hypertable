@@ -85,6 +85,30 @@ ostream &Hypertable::operator<<(ostream &os, const RangeSpec &range) {
     os <<" end='"<< range.end_row <<"'";
 
   os <<'}';
+
+  return os;
+}
+
+
+std::ostream &Hypertable::operator<<(std::ostream &os, const ScanSpec &scanSpec) {
+  os << "RowLimit    = " << scanSpec.row_limit << endl;
+  os << "MaxVersions = " << scanSpec.max_versions << endl;
+  os << "Columns     = ";
+  for (std::vector<const char *>::const_iterator iter = scanSpec.columns.begin(); iter != scanSpec.columns.end(); iter++)
+    os << *iter << " ";
+  os << endl;
+  if (scanSpec.start_row)
+    os << "StartRow  = " << scanSpec.start_row << endl;
+  else
+    os << "StartRow  = " << endl;
+  os << "StartRowInclusive = " << scanSpec.start_row_inclusive << endl;
+  if (scanSpec.end_row)
+    os << "EndRow    = " << scanSpec.end_row << endl;
+  else
+    os << "EndRow    = " << endl;
+  os << "EndRowInclusive = " << scanSpec.end_row_inclusive << endl;
+  os << "MinTime     = " << scanSpec.interval.first << endl;
+  os << "MaxTime     = " << scanSpec.interval.second << endl;
   return os;
 }
 

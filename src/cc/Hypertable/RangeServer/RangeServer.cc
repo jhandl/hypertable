@@ -62,6 +62,8 @@ namespace {
   const int DEFAULT_PORT    = 38060;
 }
 
+uint8_t* saved_buffer;
+ScanSpec* saved_spec = 0;
 
 
 /**
@@ -643,11 +645,14 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
                                   (String)"(b) " + table->name + "[" + range->start_row + ".." + range->end_row + "]");
 
     if (m_scan_spec_cache.exists(*scan_spec)) {
+//    if (*saved_spec == *scan_spec) {
         uint8_t* cachedBuffer = m_scan_spec_cache.fetch(*scan_spec);
+//        uint8_t* cachedBuffer = saved_buffer;
 	uint32_t cachedLen = *(uint32_t *)cachedBuffer;
     	kvBuffer = new uint8_t [ sizeof(int32_t) + cachedLen ];
     	kvLenp = (uint32_t *)kvBuffer;
-	memcpy(kvBuffer, cachedBuffer, sizeof(int32_t) + cachedLen);
+	memcpy(kvBuffer, cachedBuffer, sizeof(uint8_t) * (sizeof(int32_t) + cachedLen));
+cout << "SACANDO DEL CACHE UN BUFFER DE " << *kvLenp << " (" << *(uint32_t *)cachedBuffer << ") BYTES, ASOCIADO AL SPEC:" << endl << *scan_spec << endl;
         more = false;
         HT_INFOF("GOT DATA FROM CACHE","");
     } else {
@@ -663,11 +668,14 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
     	if (Global::verbose) {
            HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
     	}
-
-        if (!more) {
+cout << "MORE: " << more << "  LEN: " << *kvLenp << endl;
+        if (!more && *kvLenp > 0) {
             uint8_t* cachedBuffer = new uint8_t [ sizeof(int32_t) + *kvLenp ];
-	    memcpy(cachedBuffer, kvBuffer, sizeof(int32_t) + *kvLenp);
+	    memcpy(cachedBuffer, kvBuffer, sizeof(uint8_t) * (sizeof(int32_t) + *kvLenp));
+cout << "METIENDO EN EL CACHE UN BUFFER DE " << *((uint32_t *)kvBuffer) << " BYTES, ASOCIADO AL SPEC:" << endl << *scan_spec << endl;
             m_scan_spec_cache.insert(*scan_spec,cachedBuffer);
+//            *saved_spec = *scan_spec;
+//            saved_buffer = cachedBuffer;
         }
 
         //if (Global::verbose) {

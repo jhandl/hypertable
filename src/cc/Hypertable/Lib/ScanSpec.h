@@ -36,6 +36,32 @@ namespace Hypertable {
   public:
     RowInterval();
     RowInterval(const uint8_t **bufp, size_t *remainp) { decode(bufp, remainp); }
+    RowInterval(const RowInterval &other) {
+      start = new char[strlen(other.start)+1];
+      strcpy(start,other.start);
+      end = new char[strlen(other.end)+1];
+      strcpy(end,other.end);
+      start_inclusive = other.start_inclusive;
+      end_inclusive = other.end_inclusive;
+    }
+
+    bool operator<(const RowInterval &other) {
+      if (start < other.start) return true;
+      if (start > other.start) return false;
+      if (start_inclusive < other.start_inclusive) return true;
+      if (start_inclusive > other.start_inclusive) return false;
+      if (end < other.end) return true;
+      if (end > other.end) return false;
+      if (end_inclusive < other.end_inclusive) return true;
+      return false;
+    }
+
+    bool operator==(const RowInterval &other ) {
+      return strcmp(start, other.start) == 0
+        && strcmp(end, other.end) == 0
+        && start_inclusive == other.start_inclusive
+        && end_inclusive == other.end_inclusive;
+    }
 
     size_t encoded_length() const;
     void encode(uint8_t **bufp) const;
@@ -56,6 +82,42 @@ namespace Hypertable {
   public:
     CellInterval();
     CellInterval(const uint8_t **bufp, size_t *remainp) { decode(bufp, remainp); }
+    CellInterval(const CellInterval &other) {
+      start_row = new char[strlen(other.start_row)+1];
+      strcpy(start_row,other.start_row);
+      start_column = new char[strlen(other.start_column)+1];
+      strcpy(start_column,other.start_column);
+      end_row = new char[strlen(other.end_row)+1];
+      strcpy(end_row,other.end_row);
+      end_column = new char[strlen(other.end_column)+1];
+      strcpy(end_column,other.end_column);
+      start_inclusive = other.start_inclusive;
+      end_inclusive = other.end_inclusive;
+    }
+
+    bool operator<(const CellInterval &other) {
+      if (start_row < other.start_row) return true;
+      if (start_row > other.start_row) return false;
+      if (start_column < other.start_column) return true;
+      if (start_column > other.start_column) return false;
+      if (start_inclusive < other.start_inclusive) return true;
+      if (start_inclusive > other.start_inclusive) return false;
+      if (end_row < other.end_row) return true;
+      if (end_row > other.end_row) return false;
+      if (end_column < other.end_column) return true;
+      if (end_column > other.end_column) return false;
+      if (end_inclusive < other.end_inclusive) return true;
+      return false;
+    }
+
+    bool operator==(const CellInterval &other ) {
+      return strcmp(start_row, other.start_row) == 0
+        && strcmp(start_column, other.start_column) == 0
+        && strcmp(end_row, other.end_row) == 0
+        && strcmp(end_column, other.end_column) == 0
+        && start_inclusive == other.start_inclusive
+        && end_inclusive == other.end_inclusive;
+    }
 
     size_t encoded_length() const;
     void encode(uint8_t **bufp) const;
@@ -70,6 +132,7 @@ namespace Hypertable {
   };
   
 
+
   /**
    * Represents a scan predicate.
    */
@@ -77,6 +140,8 @@ namespace Hypertable {
   public:
     ScanSpec();
     ScanSpec(const uint8_t **bufp, size_t *remainp) { decode(bufp, remainp); }
+    ScanSpec(const ScanSpec &other) { deep_copy(other); }
+    ScanSpec& operator=(const ScanSpec &other) { deep_copy(other); return *this; }
 
     size_t encoded_length() const;
     void encode(uint8_t **bufp) const;
@@ -100,6 +165,49 @@ namespace Hypertable {
       other.return_deletes = return_deletes;
       other.row_intervals.clear();
       other.cell_intervals.clear();
+    }
+
+    void deep_copy(const ScanSpec &other) {
+      row_limit = other.row_limit;
+      max_versions = other.max_versions;
+      columns = other.columns;
+      for (int i = 0; i < other.row_intervals.size(); i++) {
+        RowInterval row_int = other.row_intervals.at(i);
+        row_intervals.push_back(row_int);
+      }
+      for (int i = 0; i < other.cell_intervals.size(); i++) {
+        CellInterval cell_int = other.cell_intervals.at(i);
+        cell_intervals.push_back(cell_int);
+      }
+      time_interval = other.time_interval;
+      return_deletes = other.return_deletes;
+    }
+
+    bool operator <(const ScanSpec &other) {
+      if (row_intervals < other.row_intervals) return true;
+      if (row_intervals > other.row_intervals) return false;
+      if (cell_intervals < other.cell_intervals) return true;
+      if (cell_intervals > other.cell_intervals) return false;
+      if (columns < other.columns) return true;
+      if (columns > other.columns) return false;
+      if (return_deletes < other.return_deletes) return true;
+      if (return_deletes > other.return_deletes) return false;
+      if (time_interval < other.time_interval) return true;
+      if (time_interval > other.time_interval) return false;
+      if (row_limit < other.row_limit) return true;
+      if (row_limit > other.row_limit) return false;
+      if (max_versions < other.max_versions) return true;
+      return false;
+    }
+
+    bool operator==(const ScanSpec &other ) {
+      return row_intervals == other.row_intervals
+	&& cell_intervals == other.cell_intervals
+	&& time_interval == other.time_interval
+	&& columns == other.columns
+        && return_deletes == other.return_deletes
+        && row_limit == other.row_limit
+        && max_versions == other.max_versions;
     }
 
     int32_t row_limit;
@@ -262,6 +370,7 @@ namespace Hypertable {
   std::ostream &operator<<(std::ostream &os, const CellInterval &);
 
   std::ostream &operator<<(std::ostream &os, const ScanSpec &);
+
 
 } // namespace Hypertable
 
