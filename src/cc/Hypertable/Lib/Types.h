@@ -113,11 +113,9 @@ namespace Hypertable {
     String m_start, m_end;
   };
 
-
   std::ostream &operator<<(std::ostream &os, const TableIdentifier &);
 
   std::ostream &operator<<(std::ostream &os, const RangeSpec &);
-
 
 } // namespace Hypertable
 
