@@ -649,7 +649,6 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
     	kvBuffer = new uint8_t [ sizeof(int32_t) + cachedLen ];
     	kvLenp = (uint32_t *)kvBuffer;
 	memcpy(kvBuffer, cachedBuffer, sizeof(uint8_t) * (sizeof(int32_t) + cachedLen));
-cout << "SACANDO DEL CACHE UN BUFFER DE " << *kvLenp << " (" << *(uint32_t *)cachedBuffer << ") BYTES, ASOCIADO AL SPEC:" << endl << *scan_spec << endl;
         more = false;
         fromCache = true;
         HT_INFOF("GOT DATA FROM CACHE","");
@@ -666,11 +665,9 @@ cout << "SACANDO DEL CACHE UN BUFFER DE " << *kvLenp << " (" << *(uint32_t *)cac
     	if (Global::verbose) {
            HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
     	}
-cout << "MORE: " << more << "  LEN: " << *kvLenp << endl;
         if (!more && *kvLenp > 0) {
             uint8_t* cachedBuffer = new uint8_t [ sizeof(int32_t) + *kvLenp ];
 	    memcpy(cachedBuffer, kvBuffer, sizeof(uint8_t) * (sizeof(int32_t) + *kvLenp));
-cout << "METIENDO EN EL CACHE UN BUFFER DE " << *((uint32_t *)kvBuffer) << " BYTES, ASOCIADO AL SPEC:" << endl << *scan_spec << endl;
             m_scan_spec_cache.insert(*scan_spec,cachedBuffer);
         }
 
