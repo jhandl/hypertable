@@ -67,11 +67,18 @@ namespace Hypertable {
      */
     bool next(ByteString &key, ByteString &value);
 
+    /** Returns true if this scanblock was obtained from the cache.
+     *
+     * @return true if this scanblock was obtained from the cache, or false if read from disk.
+     */
+    bool cached() { return ((m_flags & 0x0002) == 0x0002); }
+
     /** Returns true if this is the final scanblock returned by the scanner.
      *
      * @return true if this is the final scanblock, or false if more to come
      */
     bool eos() { return ((m_flags & 0x0001) == 0x0001); }
+
 
     /** Indicates whether or not there are more key/value pairs in block
      *

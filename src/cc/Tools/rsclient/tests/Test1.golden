@@ -806,3 +806,6 @@ DESTROY SCANNER;
 CREATE SCANNER ON Test1[..??] WHERE "Agamemnon" < ROW < "Aganice";
 1181153477562141 Agamidae onion:http://www.dtic.mil/jcs
 DESTROY SCANNER;
+CREATE SCANNER ON Test1[..??] WHERE ROW > "Agamemnon" && ROW < "Aganice";
+1181153477562141 Agamidae onion:http://www.dtic.mil/jcs
+DESTROY SCANNER;

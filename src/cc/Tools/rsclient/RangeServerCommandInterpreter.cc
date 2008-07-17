@@ -267,8 +267,9 @@ void RangeServerCommandInterpreter::execute_line(const String &line) {
 
       ByteString key, value;
 
+      bool cached = scanblock.cached();
       while (scanblock.next(key, value))
-        display_scan_data(key, value, schema_ptr);
+	display_scan_data(key, value, schema_ptr, cached);
 
       if (scanblock.eos())
         m_cur_scanner_id = -1;
@@ -291,8 +292,9 @@ void RangeServerCommandInterpreter::execute_line(const String &line) {
 
       ByteString key, value;
 
+      bool cached = scanblock.cached();
       while (scanblock.next(key, value))
-        display_scan_data(key, value, schema_ptr);
+	display_scan_data(key, value, schema_ptr, cached);
 
       if (scanblock.eos())
         m_cur_scanner_id = -1;
@@ -362,7 +364,7 @@ void RangeServerCommandInterpreter::execute_line(const String &line) {
  */
 void
 RangeServerCommandInterpreter::display_scan_data(const ByteString &bskey,
-    const ByteString &value, SchemaPtr &schema_ptr) {
+    const ByteString &value, SchemaPtr &schema_ptr, bool cached) {
   Key key(bskey);
   Schema::ColumnFamily *cf;
 
@@ -376,6 +378,9 @@ RangeServerCommandInterpreter::display_scan_data(const ByteString &bskey,
         cout << key.timestamp << " " << key.row << " " << cf->name << ":" << key.column_qualifier << " DELETE" << endl;
       else {
         cout << key.timestamp << " " << key.row << " " << cf->name << ":" << key.column_qualifier;
+	if (cached) {
+	  cout << " cached";
+	}
         cout << endl;
       }
     }

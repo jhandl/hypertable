@@ -15,4 +15,6 @@ CREATE SCANNER ON Test1[..??] WHERE "Agamemnon" <= ROW < "Aganice";
 DESTROY SCANNER;
 CREATE SCANNER ON Test1[..??] WHERE "Agamemnon" < ROW < "Aganice";
 DESTROY SCANNER;
+CREATE SCANNER ON Test1[..??] WHERE ROW > "Agamemnon" && ROW < "Aganice";
+DESTROY SCANNER;
 quit;
