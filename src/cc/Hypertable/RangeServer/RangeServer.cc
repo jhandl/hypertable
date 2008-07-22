@@ -602,9 +602,9 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
 
   if (Global::verbose) {
     cout << "RangeServer::create_scanner" << endl;
-    cout << *table;
-    cout << *range;
-    cout << *scan_spec;
+    cout << "TABLE: " << endl << *table;
+    cout << "RANGE: " << endl << *range;
+    cout << "SCAN: " << endl << *scan_spec;
   }
 
   if (!m_replay_finished)
