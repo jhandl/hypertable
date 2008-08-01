@@ -643,8 +643,9 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
       throw Hypertable::Exception(Error::RANGESERVER_RANGE_NOT_FOUND,
                                   (String)"(b) " + table->name + "[" + range->start_row + ".." + range->end_row + "]");
 
-    if (m_scan_spec_cache.exists(*scan_spec)) {
-        uint8_t* cachedBuffer = m_scan_spec_cache.fetch(*scan_spec);
+    TableScanSpec table_scan_spec(*table, *scan_spec);
+    if (m_table_scan_spec_cache.exists(table_scan_spec)) {
+        uint8_t* cachedBuffer = m_table_scan_spec_cache.fetch(table_scan_spec);
 	uint32_t cachedLen = *(uint32_t *)cachedBuffer;
     	kvBuffer = new uint8_t [ sizeof(int32_t) + cachedLen ];
     	kvLenp = (uint32_t *)kvBuffer;
@@ -665,10 +666,10 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
     	if (Global::verbose) {
            HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
     	}
-        if (!more && *kvLenp > 0) {
+        if (!more && *kvLenp > 0 && strcmp(scan_spec->start_row, scan_spec->end_row) == 0) {
             uint8_t* cachedBuffer = new uint8_t [ sizeof(int32_t) + *kvLenp ];
 	    memcpy(cachedBuffer, kvBuffer, sizeof(uint8_t) * (sizeof(int32_t) + *kvLenp));
-            m_scan_spec_cache.insert(*scan_spec,cachedBuffer);
+            m_table_scan_spec_cache.insert(table_scan_spec,cachedBuffer);
         }
 
         //if (Global::verbose) {
@@ -1022,7 +1023,7 @@ void RangeServer::update(ResponseCallbackUpdate *cb, TableIdentifier *table, Sta
   try {
 
 cout << "LIMPIANDO EL CACHE" << endl;
-    m_scan_spec_cache.clear();
+    m_table_scan_spec_cache.clear();
 
     // Fetch table info
     if (!m_live_map_ptr->get(table->id, table_info_ptr)) {

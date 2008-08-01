@@ -103,7 +103,7 @@ namespace Hypertable {
     void replay_log(CommitLogReaderPtr &log_reader_ptr);
     int verify_schema(TableInfoPtr &, int generation, std::string &errmsg);
     void schedule_log_cleanup_compactions(std::vector<RangePtr> &range_vec, CommitLog *log, uint64_t prune_threshold);
-    typedef LRUCache<ScanSpec,uint8_t*> ScanSpecCache;
+    typedef LRUCache<TableScanSpec,uint8_t*> TableScanSpecCache;
 
     Mutex                  m_mutex;
     boost::condition       m_root_replay_finished_cond;
@@ -134,7 +134,7 @@ namespace Hypertable {
     uint64_t               m_bytes_loaded;
     uint64_t               m_log_roll_limit;
     int                    m_replay_group;
-    ScanSpecCache          m_scan_spec_cache;
+    TableScanSpecCache     m_table_scan_spec_cache;
   };
 
   typedef intrusive_ptr<RangeServer> RangeServerPtr;

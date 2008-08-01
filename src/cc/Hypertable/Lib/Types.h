@@ -67,6 +67,15 @@ namespace Hypertable {
       return *this;
     }
 
+    bool operator<(const TableIdentifier &other) {
+      if (strcmp(m_name, other.m_name) < 0) return true;
+      return false;
+    }
+
+    bool operator==(const TableIdentifier &other) {
+      return strcmp(m_name, other.m_name) == 0;
+    }
+
   private:
     String m_name;
   };
