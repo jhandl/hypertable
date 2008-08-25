@@ -28,7 +28,6 @@
 #include "Common/Properties.h"
 #include "Common/ReferenceCount.h"
 #include "Common/HashMap.h"
-#include "Common/lru_cache.h"
 
 #include "AsyncComm/ApplicationQueue.h"
 #include "AsyncComm/Comm.h"
@@ -40,6 +39,7 @@
 #include "Hypertable/Lib/MasterClient.h"
 #include "Hypertable/Lib/RangeState.h"
 #include "Hypertable/Lib/Types.h"
+#include "Hypertable/Lib/QueryCache.h"
 
 #include "Global.h"
 #include "ResponseCallbackCreateScanner.h"
@@ -103,7 +103,6 @@ namespace Hypertable {
     void replay_log(CommitLogReaderPtr &log_reader_ptr);
     int verify_schema(TableInfoPtr &, int generation, std::string &errmsg);
     void schedule_log_cleanup_compactions(std::vector<RangePtr> &range_vec, CommitLog *log, uint64_t prune_threshold);
-    typedef LRUCache<TableScanSpec,uint8_t*> TableScanSpecCache;
 
     Mutex                  m_mutex;
     boost::condition       m_root_replay_finished_cond;
@@ -134,7 +133,7 @@ namespace Hypertable {
     uint64_t               m_bytes_loaded;
     uint64_t               m_log_roll_limit;
     int                    m_replay_group;
-    TableScanSpecCache     m_table_scan_spec_cache;
+    QueryCache             m_query_cache;
   };
 
   typedef intrusive_ptr<RangeServer> RangeServerPtr;

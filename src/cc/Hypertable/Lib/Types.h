@@ -27,6 +27,7 @@
 
 #include "Common/ByteString.h"
 #include "Common/String.h"
+#include "Common/md5.h"
 
 namespace Hypertable {
 
@@ -42,6 +43,23 @@ namespace Hypertable {
     size_t encoded_length() const;
     void encode(uint8_t **bufp) const;
     void decode(const uint8_t **bufp, size_t *remainp);
+
+    bool operator<(const TableIdentifier &other) {
+      if (id < other.id) return true;
+      if (id > other.id) return false;
+      if (generation < other.generation) return true;
+      return false;
+    }
+
+    bool operator==(const TableIdentifier &other) {
+      return id == other.id
+        && generation == other.generation;
+    }
+
+    void md5_update(md5_context *md5) const {
+      ::md5_update(md5, (unsigned char*)&id, (int)sizeof(uint32_t));
+      ::md5_update(md5, (unsigned char*)&generation, sizeof(uint32_t));
+    }
 
     const char *name;
     uint32_t id;
@@ -66,16 +84,6 @@ namespace Hypertable {
         name = 0;
       return *this;
     }
-
-    bool operator<(const TableIdentifier &other) {
-      if (strcmp(m_name, other.m_name) < 0) return true;
-      return false;
-    }
-
-    bool operator==(const TableIdentifier &other) {
-      return strcmp(m_name, other.m_name) == 0;
-    }
-
   private:
     String m_name;
   };
@@ -91,6 +99,8 @@ namespace Hypertable {
     size_t encoded_length() const;
     void encode(uint8_t **bufp) const;
     void decode(const uint8_t **bufp, size_t *remainp);
+    bool operator<(const RangeSpec &other);
+    bool operator==(const RangeSpec &other);
 
     const char *start_row;
     const char *end_row;

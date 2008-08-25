@@ -24,11 +24,11 @@
 
 using namespace Hypertable;
 
-int ResponseCallbackCreateScanner::response(short moreflag, short cacheFlag, int32_t id, StaticBuffer &ext) {
+int ResponseCallbackCreateScanner::response(short moreflag, short cacheflag, int32_t id, StaticBuffer &ext) {
   m_header_builder.initialize_from_request(m_event_ptr->header);
   CommBufPtr cbp(new CommBuf(m_header_builder, 10, ext));
   cbp->append_i32(Error::OK);
-  cbp->append_i16(moreFlag+2*cacheFlag);
+  cbp->append_i16(moreflag+2*cacheflag);
   cbp->append_i32(id);   // scanner ID
   return m_comm->send_response(m_event_ptr->addr, cbp);
 }

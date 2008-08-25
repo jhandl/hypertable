@@ -23,8 +23,10 @@
 #define HYPERTABLE_SCANSPEC_H
 
 #include <boost/noncopyable.hpp>
-
 #include <vector>
+
+#include "Common/md5.h"
+
 
 namespace Hypertable {
 
@@ -37,14 +39,16 @@ namespace Hypertable {
     RowInterval();
     RowInterval(const uint8_t **bufp, size_t *remainp) { decode(bufp, remainp); }
     RowInterval(const RowInterval &other) {
-      start = new char[strlen(other.start)+1];
-      strcpy(start,other.start);
-      end = new char[strlen(other.end)+1];
-      strcpy(end,other.end);
+      char *tmp = new char[strlen(other.start)+1];
+      strcpy(tmp,other.start);
+      start = tmp;
+      tmp = new char[strlen(other.end)+1];
+      strcpy(tmp,other.end);
+      end = tmp;
       start_inclusive = other.start_inclusive;
       end_inclusive = other.end_inclusive;
     }
-
+/*
     bool operator<(const RowInterval &other) {
       if (start < other.start) return true;
       if (start > other.start) return false;
@@ -55,12 +59,26 @@ namespace Hypertable {
       if (end_inclusive < other.end_inclusive) return true;
       return false;
     }
+*/
+    friend bool operator==(const RowInterval &self, const RowInterval &other) {
+      return strcmp(self.start, other.start) == 0
+        && strcmp(self.end, other.end) == 0
+        && self.start_inclusive == other.start_inclusive
+        && self.end_inclusive == other.end_inclusive;
+    }
 
-    bool operator==(const RowInterval &other ) {
-      return strcmp(start, other.start) == 0
-        && strcmp(end, other.end) == 0
-        && start_inclusive == other.start_inclusive
-        && end_inclusive == other.end_inclusive;
+    bool defines_one_row() {
+      // The ScanSpecBuilder assigns both pointers to the same row_key,
+      // so this fast comparison can be made, although it will miss an 
+      // interval with equal start and end rows.
+      return (start == end && start_inclusive && end_inclusive);
+    }
+
+    void md5_update(md5_context *md5) const {
+      ::md5_update(md5, (unsigned char*)start, strlen(start));
+      ::md5_update(md5, (unsigned char*)&start_inclusive, sizeof(bool));
+      ::md5_update(md5, (unsigned char*)end, strlen(end));
+      ::md5_update(md5, (unsigned char*)&end_inclusive, sizeof(bool));
     }
 
     size_t encoded_length() const;
@@ -83,18 +101,22 @@ namespace Hypertable {
     CellInterval();
     CellInterval(const uint8_t **bufp, size_t *remainp) { decode(bufp, remainp); }
     CellInterval(const CellInterval &other) {
-      start_row = new char[strlen(other.start_row)+1];
-      strcpy(start_row,other.start_row);
-      start_column = new char[strlen(other.start_column)+1];
-      strcpy(start_column,other.start_column);
-      end_row = new char[strlen(other.end_row)+1];
-      strcpy(end_row,other.end_row);
-      end_column = new char[strlen(other.end_column)+1];
-      strcpy(end_column,other.end_column);
+      char *tmp = new char[strlen(other.start_row)+1];
+      strcpy(tmp,other.start_row);
+      start_row = tmp;
+      tmp = new char[strlen(other.start_column)+1];
+      strcpy(tmp,other.start_column);
+      start_column = tmp;
+      tmp = new char[strlen(other.end_row)+1];
+      strcpy(tmp,other.end_row);
+      end_row = tmp;
+      tmp = new char[strlen(other.end_column)+1];
+      strcpy(tmp,other.end_column);
+      end_column = tmp;
       start_inclusive = other.start_inclusive;
       end_inclusive = other.end_inclusive;
     }
-
+/*
     bool operator<(const CellInterval &other) {
       if (start_row < other.start_row) return true;
       if (start_row > other.start_row) return false;
@@ -109,14 +131,30 @@ namespace Hypertable {
       if (end_inclusive < other.end_inclusive) return true;
       return false;
     }
+*/
+    friend bool operator==(const CellInterval &self, const CellInterval &other ) {
+      return strcmp(self.start_row, other.start_row) == 0
+        && strcmp(self.start_column, other.start_column) == 0
+        && strcmp(self.end_row, other.end_row) == 0
+        && strcmp(self.end_column, other.end_column) == 0
+        && self.start_inclusive == other.start_inclusive
+        && self.end_inclusive == other.end_inclusive;
+    }
 
-    bool operator==(const CellInterval &other ) {
-      return strcmp(start_row, other.start_row) == 0
-        && strcmp(start_column, other.start_column) == 0
-        && strcmp(end_row, other.end_row) == 0
-        && strcmp(end_column, other.end_column) == 0
-        && start_inclusive == other.start_inclusive
-        && end_inclusive == other.end_inclusive;
+    bool defines_one_row() {
+      // The ScanSpecBuilder assigns both pointers to the same row_key,
+      // so this fast comparison can be made, although it will miss an 
+      // interval with equal start and end rows.
+      return (start_row == end_row && start_inclusive && end_inclusive);
+    }
+
+    void md5_update(md5_context *md5) const {
+      ::md5_update(md5, (unsigned char*)start_row, strlen(start_row));
+      ::md5_update(md5, (unsigned char*)start_column, strlen(start_column));
+      ::md5_update(md5, (unsigned char*)&start_inclusive, sizeof(bool));
+      ::md5_update(md5, (unsigned char*)end_row, strlen(end_row));
+      ::md5_update(md5, (unsigned char*)end_column, strlen(end_column));
+      ::md5_update(md5, (unsigned char*)&end_inclusive, sizeof(bool));
     }
 
     size_t encoded_length() const;
@@ -171,43 +209,46 @@ namespace Hypertable {
       row_limit = other.row_limit;
       max_versions = other.max_versions;
       columns = other.columns;
-      for (int i = 0; i < other.row_intervals.size(); i++) {
-        RowInterval row_int = other.row_intervals.at(i);
+      for (unsigned int i = 0; i < other.row_intervals.size(); i++) {
+        RowInterval row_int = other.row_intervals[i];
         row_intervals.push_back(row_int);
       }
-      for (int i = 0; i < other.cell_intervals.size(); i++) {
-        CellInterval cell_int = other.cell_intervals.at(i);
+      for (unsigned int i = 0; i < other.cell_intervals.size(); i++) {
+        CellInterval cell_int = other.cell_intervals[i];
         cell_intervals.push_back(cell_int);
       }
       time_interval = other.time_interval;
       return_deletes = other.return_deletes;
     }
 
-    bool operator <(const ScanSpec &other) {
-      if (row_intervals < other.row_intervals) return true;
-      if (row_intervals > other.row_intervals) return false;
-      if (cell_intervals < other.cell_intervals) return true;
-      if (cell_intervals > other.cell_intervals) return false;
-      if (columns < other.columns) return true;
-      if (columns > other.columns) return false;
-      if (return_deletes < other.return_deletes) return true;
-      if (return_deletes > other.return_deletes) return false;
-      if (time_interval < other.time_interval) return true;
-      if (time_interval > other.time_interval) return false;
-      if (row_limit < other.row_limit) return true;
-      if (row_limit > other.row_limit) return false;
-      if (max_versions < other.max_versions) return true;
-      return false;
+    void md5_update(md5_context *md5) const {
+      ::md5_update(md5, (unsigned char*)&max_versions, sizeof(uint32_t));
+      for (unsigned int i = 0; i < columns.size(); i++) {
+        ::md5_update(md5, (unsigned char*)columns[i], strlen(columns[i]));
+      }
+      for (unsigned int i = 0; i < row_intervals.size(); i++) {
+        row_intervals[i].md5_update(md5);
+      }
+      for (unsigned int i = 0; i < cell_intervals.size(); i++) {
+        cell_intervals[i].md5_update(md5);
+      }
+      ::md5_update(md5, (unsigned char*)&time_interval.first, sizeof(int64_t));
+      ::md5_update(md5, (unsigned char*)&time_interval.second, sizeof(int64_t));
+      ::md5_update(md5, (unsigned char*)&return_deletes, sizeof(bool));
     }
 
-    bool operator==(const ScanSpec &other ) {
-      return row_intervals == other.row_intervals
-	&& cell_intervals == other.cell_intervals
-	&& time_interval == other.time_interval
-	&& columns == other.columns
-        && return_deletes == other.return_deletes
-        && row_limit == other.row_limit
-        && max_versions == other.max_versions;
+    bool operator==(const ScanSpec &other) {
+      return (max_versions == other.max_versions) 
+        && (columns == other.columns)
+        && (row_intervals == other.row_intervals)
+        && (cell_intervals == other.cell_intervals)
+        && (time_interval == other.time_interval)
+        && (return_deletes == other.return_deletes);
+    }
+
+    bool defines_one_row() {
+      return (row_intervals.size() == 1 && row_intervals[0].defines_one_row()) 
+        || (cell_intervals.size() == 1 && cell_intervals[0].defines_one_row());
     }
 
     int32_t row_limit;

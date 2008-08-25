@@ -67,7 +67,7 @@ namespace {
 /**
  * Constructor
  */
-RangeServer::RangeServer(PropertiesPtr &props_ptr, ConnectionManagerPtr &conn_manager_ptr, ApplicationQueuePtr &app_queue_ptr, Hyperspace::SessionPtr &hyperspace_ptr) : m_root_replay_finished(false), m_metadata_replay_finished(false), m_replay_finished(false), m_props_ptr(props_ptr), m_verbose(false), m_conn_manager_ptr(conn_manager_ptr), m_app_queue_ptr(app_queue_ptr), m_hyperspace_ptr(hyperspace_ptr), m_last_commit_log_clean(0), m_bytes_loaded(0), m_scan_spec_cache(1000) {
+RangeServer::RangeServer(PropertiesPtr &props_ptr, ConnectionManagerPtr &conn_manager_ptr, ApplicationQueuePtr &app_queue_ptr, Hyperspace::SessionPtr &hyperspace_ptr) : m_root_replay_finished(false), m_metadata_replay_finished(false), m_replay_finished(false), m_props_ptr(props_ptr), m_verbose(false), m_conn_manager_ptr(conn_manager_ptr), m_app_queue_ptr(app_queue_ptr), m_hyperspace_ptr(hyperspace_ptr), m_last_commit_log_clean(0), m_bytes_loaded(0), m_query_cache(1000) {
   uint16_t port;
   uint32_t maintenance_threads = 1;
   Comm *comm = conn_manager_ptr->get_comm();
@@ -594,7 +594,7 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
   RangePtr range_ptr;
   CellListScannerPtr scanner_ptr;
   bool more = true;
-  bool fromCache = false;
+  bool fromCache;
   uint32_t id;
   Timestamp scan_timestamp;
   SchemaPtr schema_ptr;
@@ -643,44 +643,29 @@ void RangeServer::create_scanner(ResponseCallbackCreateScanner *cb, TableIdentif
       throw Hypertable::Exception(Error::RANGESERVER_RANGE_NOT_FOUND,
                                   (String)"(b) " + table->name + "[" + range->start_row + ".." + range->end_row + "]");
 
-    TableScanSpec table_scan_spec(*table, *scan_spec);
-    if (m_table_scan_spec_cache.exists(table_scan_spec)) {
-        uint8_t* cachedBuffer = m_table_scan_spec_cache.fetch(table_scan_spec);
-	uint32_t cachedLen = *(uint32_t *)cachedBuffer;
-    	kvBuffer = new uint8_t [ sizeof(int32_t) + cachedLen ];
-    	kvLenp = (uint32_t *)kvBuffer;
-	memcpy(kvBuffer, cachedBuffer, sizeof(uint8_t) * (sizeof(int32_t) + cachedLen));
-        more = false;
-        fromCache = true;
+    fromCache = false;
+cout << "CHECKING CACHE..." << endl;
+    if (m_query_cache.get(*table, *scan_spec, rbuf)) {
+cout << " DATA FOUND IN CACHE!" << endl;
+      more = false;
+      fromCache = true;
+      //if (Global::verbose) {
         HT_INFOF("GOT DATA FROM CACHE","");
+      //}
     } else {
-    	kvBuffer = new uint8_t [ sizeof(int32_t) + DEFAULT_SCANBUF_SIZE ];
-    	kvLenp = (uint32_t *)kvBuffer;
-
-    	more = FillScanBlock(scannerPtr, kvBuffer+sizeof(int32_t), DEFAULT_SCANBUF_SIZE, kvLenp);
-    	if (more)
-           id = Global::scannerMap.put(scannerPtr, range_ptr);
-    	else
-           id = 0;
-
-    	if (Global::verbose) {
-           HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
-    	}
-        if (!more && *kvLenp > 0 && strcmp(scan_spec->start_row, scan_spec->end_row) == 0) {
-            uint8_t* cachedBuffer = new uint8_t [ sizeof(int32_t) + *kvLenp ];
-	    memcpy(cachedBuffer, kvBuffer, sizeof(uint8_t) * (sizeof(int32_t) + *kvLenp));
-            m_table_scan_spec_cache.insert(table_scan_spec,cachedBuffer);
-        }
-
+cout << " DATA NOT FOUND IN CACHE" << endl;
+      more = FillScanBlock(scanner_ptr, rbuf);
+      if (!more && scan_spec->defines_one_row()) {
+        m_query_cache.add(*table, *scan_spec, rbuf);
         //if (Global::verbose) {
           HT_INFOF("INSERTED DATA ON CACHE","");
         //}
+      }
+    }
 
-        id = (more) ? Global::scanner_map.put(scanner_ptr, range_ptr) : 0;
-
-        if (Global::verbose) {
-           HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
-        }
+    id = (more) ? Global::scanner_map.put(scanner_ptr, range_ptr) : 0;
+    if (Global::verbose) {
+      HT_INFOF("Successfully created scanner (id=%d) on table '%s'", id, table->name);
     }
 
     /**
@@ -1022,8 +1007,6 @@ void RangeServer::update(ResponseCallbackUpdate *cb, TableIdentifier *table, Sta
 
   try {
 
-cout << "LIMPIANDO EL CACHE" << endl;
-    m_table_scan_spec_cache.clear();
 
     // Fetch table info
     if (!m_live_map_ptr->get(table->id, table_info_ptr)) {
@@ -1067,6 +1050,8 @@ cout << "LIMPIANDO EL CACHE" << endl;
       }
 
       row = key.str();
+
+      m_query_cache.remove(table, row);
 
       // Look for containing range, add to stop mods if not found
       if (!table_info_ptr->find_containing_range(row, min_ts_rec.range_ptr)) {
